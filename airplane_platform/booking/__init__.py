@@ -7,6 +7,7 @@ class Booking:
             "booking_search_condition"
         ]
         self._booking_api_url = booking_search_condition["booking"]["api_url"]
+        self._proxies = booking_search_condition["booking"]["proxies"]
     """
     booking search condition getter method
     """
@@ -21,5 +22,8 @@ class Booking:
     def booking_api_url(self):
         return self._booking_api_url
     
+    @property
+    def proxies(self):
+        return self._proxies
 
 

@@ -11,6 +11,21 @@
             "depart": "2025-07-14",
             "return": "2025-08-14",
             "sort": "CHEAPEST"
+        },
+        
+        "proxies": {
+            "proxy1": {
+                "host": "proxy1.com",
+                "port": "8080",
+                "username": "user1",
+                "password": "pass1"
+            },
+            "proxy2": {
+                "host": "proxy2.com",
+                "port": "8080",
+                "username": "user2",
+                "password": "pass2"
+            }
         }
     }
 }
