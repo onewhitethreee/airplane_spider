@@ -1,0 +1,16 @@
+{
+    "booking": {
+        "api_url": "https://flights.booking.com/api/flights/",
+        "booking_search_condition": {
+            "type": "ROUNDTRIP",
+            "adults": "1",
+            "cabinClass": "ECONOMY",
+            "children": "",
+            "from": "MAD.AIRPORT",
+            "to": "SHA.CITY",
+            "depart": "2025-07-14",
+            "return": "2025-08-14",
+            "sort": "CHEAPEST"
+        }
+    }
+}
