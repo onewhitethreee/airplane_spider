@@ -79,7 +79,7 @@ class Booking_spider(Booking):
 
     def __del__(self):
         """析构函数，删除flights.json文件"""
-        # self.rm_flights_json()
+        self.rm_flights_json()
         pass
 
     def __str__(self):
@@ -670,7 +670,10 @@ class Booking_spider(Booking):
 
         return urllib.parse.quote(text)
 
-
+    def run(self):
+        """运行函数"""
+        self.get_flight_info()
+        return str(self)
 # if __name__ == "__main__":
 #     config_manager = ConfigManager()
 #     json_config = config_manager.register_parser(

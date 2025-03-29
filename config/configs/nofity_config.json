@@ -1,0 +1,10 @@
+{
+    "server_jiang":
+    {
+        "enable": true
+    },
+    "telegram":
+    {
+        "enable": false
+    }
+}
