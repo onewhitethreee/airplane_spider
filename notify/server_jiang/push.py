@@ -1,27 +1,28 @@
 import os
 import requests
 import logging
+from dotenv import load_dotenv
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s",
+)
 
 class server_jiang:
     def __init__(self, key=None):
+        # 首先加载.env文件
+        load_dotenv()
+
         # 尝试从多个来源获取密钥
         self.key = key
 
         # 如果没有直接提供密钥，尝试从环境变量获取
         if not self.key:
-            self.key = os.environ.get("SERVER_CHAN_KEY")
-
-        # 尝试从文件读取
-        if not self.key and os.path.exists("server_api_key.txt"):
-            try:
-                with open("server_api_key.txt", "r") as f:
-                    self.key = f.read().strip()
-            except:
-                pass
+            self.key = os.environ.get("SERVER_API_KEY")
 
         if not self.key:
             raise ValueError(
-                "请提供Server酱的API密钥或设置SERVER_CHAN_KEY环境变量或在server_api_key.txt文件中设置密钥"
+                "请提供Server酱的API密钥或设置SERVER_API_KEY环境变量或在.env文件中设置SERVER_API_KEY"
             )
 
         self.url = f"https://sc.ftqq.com/{self.key}.send"

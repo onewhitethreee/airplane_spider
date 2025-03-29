@@ -60,6 +60,10 @@
 
 其他的无需改动，如果你有代理池，也可以在同一文件下进行配置，不过目前还没有这方面的实现。
 
-2. 配置一个推送方式，比如server酱，具体的配置在config\configs\nofity_config.json下，只有一个简单的key，enable，如果为true，则会推送，如果为false，则不会推送。如果所有的通知都为false，那么则输出到控制台。
+2. 配置一个推送方式，比如server酱，具体的配置在config\configs\nofity_config.json下，只有一个简单的key，enable，如果为true，则会推送，如果为false，则不会推送。如果所有的通知都为false，那么则输出到控制台。具体的API_KEY需要在环境变量中配置，或者在根目录下面创建一个.env文件，然后在里面配置。
+
+```shell
+SERVER_API_KEY=xxxx
+```
 
 3. 在配置完上方的两个配置后，直接运行src/main.py即可。
