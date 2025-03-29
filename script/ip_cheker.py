@@ -1,5 +1,8 @@
 # 这是一个测试本地代理连接的小脚本。通过开启抓包软件Raqable，其端口为9000，另外我还开启了Warp，这样子能够隐藏个人的IP。防止IP为封掉
 import requests
+import urllib3
+
+urllib3.disable_warnings()
 
 proxies = {"http": "http://127.0.0.1:9000", "https": "http://127.0.0.1:9000"}
 
