@@ -1,7 +1,7 @@
 {
     "server_jiang":
     {
-        "enable": true
+        "enable": false
     },
     "telegram":
     {

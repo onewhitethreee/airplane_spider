@@ -105,7 +105,34 @@ class FlightNotifier:
         # 发送Telegram通知
         results["telegram"] = self.send_telegram_notification(content)
 
+        # 如果所有通知渠道都未启用或发送失败，保存到文件
+        if not any(results.values()):
+            self._save_to_file(title, content)
+            results["file"] = True
+
         return results
+
+    def _save_to_file(self, title: str, content: str) -> None:
+        """将内容保存到文件"""
+        try:
+            # 创建输出目录（如果不存在）
+            output_dir = os.path.join(project_root, "output")
+            os.makedirs(output_dir, exist_ok=True)
+
+            # 生成文件名（使用标题和日期）
+            from datetime import datetime
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{title.replace(' ', '_')}_{timestamp}.txt"
+            filepath = os.path.join(output_dir, filename)
+
+            # 保存内容到文件
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(content)
+
+            logger.info(f"内容已保存到文件: {filepath}")
+        except Exception as e:
+            logger.error(f"保存内容到文件时出错: {str(e)}")
 
 
 def main():
@@ -116,6 +143,16 @@ def main():
         results = notifier.notify_all(title)
 
         logger.info(f"通知发送结果: {results}")
+
+        # 检查是否有配置启用
+        if not any(
+            [
+                notifier.notify_config.get("server_jiang", {}).get("enable", False),
+                notifier.notify_config.get("telegram", {}).get("enable", False),
+            ]
+        ):
+            logger.info("所有通知渠道均未启用，结果已保存到文件")
+
     except Exception as e:
         logger.error(f"程序执行出错: {str(e)}")
         return 1
