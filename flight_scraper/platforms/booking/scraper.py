@@ -14,10 +14,10 @@ sys.path.append(project_root)
 
 from config.json_parse import JsonParse
 from config.config_manager import ConfigManager
-from airplane_platform.booking import Booking
+from flight_scraper.platforms.booking.config import BookingConfig
 
 
-class Booking_spider(Booking):
+class Booking_spider(BookingConfig):
     """
     初始化booking模块的配置信息
     内有atributes：booking_search_condition, booking_api_url
