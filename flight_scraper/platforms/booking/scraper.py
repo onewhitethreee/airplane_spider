@@ -6,7 +6,7 @@ import sys
 import requests
 import json
 
-from flight_scraper.core.data_formatter import format_time_duration, parse_iso_time
+from flight_scraper.core.data.data_formatter import format_time_duration, parse_iso_time
 
 # 获取项目根目录路径
 project_root = os.path.dirname(
@@ -14,14 +14,14 @@ project_root = os.path.dirname(
 )
 sys.path.append(project_root)
 
-from flight_scraper.core.factory import ScraperFactory
-from flight_scraper.core.abstract_methods import FlightScraper
+from flight_scraper.core.factory.factory import ScraperFactory
+from flight_scraper.core.abstract.abstract_methods import FlightScraper
 
 
 def rm_flights_json():
     """删除flights.json文件"""
-    if os.path.exists(r"output/flights.json"):
-        os.remove(r"output/flights.json")
+    if os.path.exists(r"flights.json"):
+        os.remove(r"flights.json")
 
 
 def _url_encode(text):
@@ -34,23 +34,14 @@ def _url_encode(text):
 class BookingScraper(FlightScraper):
 
     def __init__(self, platform_config):
-        # super().__init__(booking_search_condition)
-        # # 请求头
-        # self._headers = self._initialize_headers()
-        # # 包含着所有json的信息
-        # self._fight_json_info = None
-        # # 包含着在flightOffers下的所有信息
-        # self._fightOffers_info = None
-        #
-        # # 是否已经加载过数据
-        # self._data_loaded = False
+
         self._data_loaded = False
         self._platform_config = platform_config
         super().__init__(platform_config)
 
         self._fight_json_info = None
         self._fightOffers_info = None
-        self._save_file_path = "output/flights.json"
+        self._save_file_path = "flights.json"
 
     def load_data(self) -> bool:
         """加载并解析数据，确保只执行一次"""
@@ -80,15 +71,24 @@ class BookingScraper(FlightScraper):
         """获取航班信息，通过requests获取到json信息，写入flights.json文件"""
         url = self._platform_config.get_api_url()
         params = self._platform_config.get_search_params()
-        response = requests.get(
-            url,
-            params=params,
-            headers=self._headers,
-            proxies=self._proxies,
-            verify=False,
-        )
-        with open(self._save_file_path, "w", encoding="utf-8") as f:
-            f.write(response.text)
+        try:
+
+            response = requests.get(
+                url,
+                params=params,
+                headers=self._headers,
+                proxies=self._proxies,
+                verify=False,
+            )
+
+            response.raise_for_status()  # 检查请求是否成功
+
+            with open(self._save_file_path, "w", encoding="utf-8") as f:
+                f.write(response.text)
+                logging.info(f"航班信息已保存到 {self._save_file_path}")
+        except requests.RequestException as e:
+            logging.error(f"请求航班信息失败: {e}")
+            return None
 
     def __del__(self):
         """析构函数，删除flights.json文件"""
@@ -691,6 +691,6 @@ if __name__ == "__main__":
     scraper_config = ScraperFactory.create_scraper("booking")
 
     # 获取航班信息
-    result = scraper_config.get_flight_info()
+    result = scraper_config.run()
 
     print(result)
