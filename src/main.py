@@ -4,6 +4,8 @@ import json
 import logging
 from typing import Dict, Any, List, Optional
 
+from notify.server_jiang import server_jiang
+
 # 设置日志配置
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -16,17 +18,13 @@ project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
 
 # 导入项目模块
-from config.config_manager import ConfigManager
-from config.json_parse import JsonParse
-from airplane_platform.booking.booking_spider import Booking_spider
-from notify.server_jiang import server_jiang
+from flight_scraper.core.factory.factory import ScraperFactory
 
 
 class FlightNotifier:
     """管理航班信息获取和通知的类"""
 
     def __init__(self):
-        self.config_manager = ConfigManager()
         self.notify_config = self._load_notify_config()
 
     def _load_notify_config(self) -> Dict[str, Any]:
@@ -44,16 +42,21 @@ class FlightNotifier:
             logger.error(f"通知配置文件格式错误: {notify_config_path}")
             raise
 
-    def get_flight_info(self) -> str:
-        """获取航班信息"""
+    def get_flight_info(self, platform: str = "booking") -> str:
+        """获取航班信息
+
+        Args:
+            platform: 平台名称，默认为booking
+
+        Returns:
+            str: 航班信息
+        """
         try:
-            json_config = self.config_manager.register_parser(
-                r"config/configs/config_booking.json", JsonParse
-            )
-            booking_spider = Booking_spider(json_config)
-            return booking_spider.run()
+            # 使用工厂模式创建爬虫实例
+            scraper = ScraperFactory.create_scraper(platform)
+            return scraper.run()
         except Exception as e:
-            logger.error(f"获取航班信息时出错: {str(e)}")
+            logger.error(f"获取{platform}平台航班信息时出错: {str(e)}")
             raise
 
     def send_server_jiang_notification(self, title: str, content: str) -> bool:
@@ -92,10 +95,19 @@ class FlightNotifier:
             logger.error(f"发送Telegram通知时出错: {str(e)}")
             return False
 
-    def notify_all(self, title: str, content: Optional[str] = None) -> Dict[str, bool]:
-        """发送所有已启用的通知"""
+    def notify_all(self, title: str, content: Optional[str] = None, platform: str = "booking") -> Dict[str, bool]:
+        """发送所有已启用的通知
+
+        Args:
+            title: 通知标题
+            content: 通知内容，如果为None则获取航班信息
+            platform: 爬取平台，默认为booking
+
+        Returns:
+            Dict[str, bool]: 各通知渠道的发送结果
+        """
         if content is None:
-            content = self.get_flight_info()
+            content = self.get_flight_info(platform)
 
         results = {}
 
@@ -138,18 +150,26 @@ class FlightNotifier:
 def main():
     """主函数"""
     try:
+        # 解析命令行参数
+        import argparse
+        parser = argparse.ArgumentParser(description="航班信息爬取和通知工具")
+        parser.add_argument("--platform", type=str, default="booking",
+                            help="爬取平台，例如booking、expedia等")
+        parser.add_argument("--title", type=str, default="航班信息",
+                            help="通知标题")
+        args = parser.parse_args()
+
         notifier = FlightNotifier()
-        title = "航班信息"
-        results = notifier.notify_all(title)
+        results = notifier.notify_all(args.title, platform=args.platform)
 
         logger.info(f"通知发送结果: {results}")
 
         # 检查是否有配置启用
         if not any(
-            [
-                notifier.notify_config.get("server_jiang", {}).get("enable", False),
-                notifier.notify_config.get("telegram", {}).get("enable", False),
-            ]
+                [
+                    notifier.notify_config.get("server_jiang", {}).get("enable", False),
+                    notifier.notify_config.get("telegram", {}).get("enable", False),
+                ]
         ):
             logger.info("所有通知渠道均未启用，结果已保存到文件")
 
