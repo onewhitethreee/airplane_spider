@@ -92,7 +92,7 @@ class BookingScraper(FlightScraper):
 
     def __del__(self):
         """析构函数，删除flights.json文件"""
-        # rm_flights_json()
+        rm_flights_json()
         pass
 
     def __str__(self):
