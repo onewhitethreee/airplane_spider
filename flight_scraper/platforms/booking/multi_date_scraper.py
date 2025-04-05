@@ -51,14 +51,14 @@ class MultiDateBookingScraper:
         self._results = []
         self._date_configs = []
 
-    def generate_date_range(self, start_date_str: str, days_range: int = 10,
+    def generate_date_range(self, start_date_str: str, days_range: int = 1,
                             return_days: int = 36) -> List[Tuple[str, str]]:
         """
         生成日期范围
 
         Args:
             start_date_str: 开始日期，格式为 YYYY-MM-DD
-            days_range: 出发日期范围天数，默认为10天
+            days_range: 出发日期范围天数，默认为1天
             return_days: 返程天数，默认为36天
 
         Returns:

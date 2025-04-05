@@ -1,4 +1,5 @@
-# src/multi_date_search.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import sys
 import os
 import json
@@ -71,8 +72,8 @@ def main():
         parser = argparse.ArgumentParser(description="多日期航班搜索工具")
         parser.add_argument("--start-date", type=str, default=None,
                             help="开始日期，格式为YYYY-MM-DD")
-        parser.add_argument("--days-range", type=int, default=10,
-                            help="出发日期范围天数，默认为10天")
+        parser.add_argument("--days-range", type=int, default=1,
+                            help="出发日期范围天数，默认为1天")
         parser.add_argument("--return-days", type=int, default=36,
                             help="返程天数，默认为36天")
         parser.add_argument("--top-n", type=int, default=5,
@@ -81,6 +82,10 @@ def main():
                             help="通知标题")
         parser.add_argument("--no-notify", action="store_true",
                             help="不发送通知，只保存到文件")
+        parser.add_argument("--save-csv", action="store_true",
+                            help="保存结果为CSV格式")
+        parser.add_argument("--save-excel", action="store_true", default=True,
+                            help="保存结果为Excel格式(默认启用)")
         args = parser.parse_args()
 
         # 如果未指定开始日期，使用配置中的日期
@@ -101,18 +106,31 @@ def main():
             args.top_n
         )
 
+        # 保存结果
+        if args.save_csv:
+            csv_path = multi_date_scraper.save_results_csv()
+            logger.info(f"结果已保存为CSV: {csv_path}")
+
+        if args.save_excel:
+            excel_path = multi_date_scraper.save_results_xlsx()
+            logger.info(f"结果已保存为Excel: {excel_path}")
+
         # 发送通知
         if not args.no_notify:
             notify_config = load_notify_config()
             send_notification(args.title, results, notify_config)
         else:
             # 直接打印结果
+            print("\n======= 爬取结果 =======")
             print(results)
+            print("======================\n")
 
         logger.info("多日期航班搜索完成")
 
     except Exception as e:
         logger.error(f"程序执行出错: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return 1
 
     return 0
