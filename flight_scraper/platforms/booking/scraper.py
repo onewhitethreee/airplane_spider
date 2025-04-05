@@ -43,7 +43,8 @@ class BookingScraper(FlightScraper):
         self._raw_data = None
         self._processed_offers = []
 
-        self._save_file_path = "flights.json"
+        import uuid
+        self._save_file_path = f"flights_{uuid.uuid4().hex}.json" # 修复多日期搜索时文件名冲突的问题
         self._platform_type = "booking"
 
     def load_data(self) -> bool:
@@ -114,7 +115,7 @@ class BookingScraper(FlightScraper):
     def parse_price(self, index=0):
         """
         解析价格
-        
+
         返回一个字典，包含了总价格，货币单位，单位和纳秒
         其格式为：
         {
@@ -204,7 +205,7 @@ class BookingScraper(FlightScraper):
     def parse_link(self, index=0):
         """
         解析航班链接token
-        
+
         返回一个字典，包含token信息
         其格式为：
         {
@@ -245,10 +246,10 @@ class BookingScraper(FlightScraper):
         self.requests_flight_info()
         if not self.load_data():
             return "获取航班数据失败"
-        return str(self)
+        return self.format_result()
 
-    def __str__(self):
-        """重写__str__方法，显示所有航班信息及预订链接"""
+    def format_result(self):
+        """显示所有航班信息及预订链接"""
         if not self._data_loaded:
             logging.error("数据未加载，请先运行run方法")
             return "数据未加载，请先运行run方法"
@@ -344,13 +345,18 @@ class BookingScraper(FlightScraper):
             return f"获取航班信息时出错: {e}"
 
     def __del__(self):
-        """析构函数，删除flights.json文件"""
-        rm_flights_json()
-        pass
+        """析构函数，删除临时文件"""
+        try:
+            if hasattr(self, '_save_file_path') and os.path.exists(self._save_file_path):
+                os.remove(self._save_file_path)
+                logging.debug(f"临时文件已删除: {self._save_file_path}")
+        except Exception as e:
+            logging.warning(f"删除临时文件时出错: {e}")
 if __name__ == "__main__":
     scraper_config = ScraperFactory.create_scraper("booking")
 
     # 获取航班信息
-    # result = scraper_config.run()
+    result = scraper_config.run()
 
-    print(scraper_config)
+    # print(result)
+    print(result)

@@ -4,7 +4,6 @@ import os
 import logging
 
 
-
 class ScraperFactory:
     """爬虫工厂类，负责创建不同平台的爬虫实例"""
 
@@ -29,6 +28,14 @@ class ScraperFactory:
             from flight_scraper.platforms.booking.config import BookingConfig
             platform_config = BookingConfig(config)
             return BookingScraper(platform_config)
+        """
+        Booking多日期搜索。
+        """
+        if platform_name.lower() == "booking_multi_date":
+            from flight_scraper.platforms.booking.multi_date_scraper import MultiDateBookingScraper
+            from flight_scraper.platforms.booking.config import BookingConfig
+            platform_config = BookingConfig(config)
+            return MultiDateBookingScraper(platform_config)
         # 添加其他平台支持...
 
         else:
@@ -49,9 +56,14 @@ class ScraperFactory:
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
 
         # 配置文件路径
-        config_path = os.path.join(
-            project_root, "config", "configs", f"config_{platform_name.lower()}.json"
-        )
+        if platform_name.lower() == "booking" or platform_name.lower() == "booking_multi_date":
+            config_path = os.path.join(
+                project_root, "config", "configs", f"config_booking.json"
+            )
+        else:
+            config_path = os.path.join(
+                project_root, "config", "configs", f"config_{platform_name.lower()}.json"
+            )
 
         try:
             with open(config_path, "r", encoding="utf-8") as f:

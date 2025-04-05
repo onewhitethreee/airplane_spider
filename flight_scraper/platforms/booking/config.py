@@ -12,7 +12,9 @@ from flight_scraper.core.platform_config import PlatformConfig
 
 
 class BookingConfig(PlatformConfig):
-
+    """
+    Booking平台配置类，继承自PlatformConfig
+    """
     def _load_config(self):
         """
         加载配置文件
