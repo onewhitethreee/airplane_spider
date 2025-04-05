@@ -2,3 +2,7 @@ server_api_key.txt
 .env
 todolist.txt
 .idea/*
+output/
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
