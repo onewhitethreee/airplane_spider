@@ -5,6 +5,7 @@ import sys
 import requests
 import json
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -92,6 +93,8 @@ class BookingScraper(FlightScraper):
 
             with open(self._save_file_path, "w", encoding="utf-8") as f:
                 f.write(response.text)
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+
                 logging.info(f"航班信息已保存到 {self._save_file_path}")
         except requests.RequestException as e:
             logging.error(f"请求航班信息失败: {e}")
@@ -353,6 +356,11 @@ class BookingScraper(FlightScraper):
         except Exception as e:
             logging.warning(f"删除临时文件时出错: {e}")
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+
     scraper_config = ScraperFactory.create_scraper("booking")
 
     # 获取航班信息

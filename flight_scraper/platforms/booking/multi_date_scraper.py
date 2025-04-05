@@ -109,10 +109,15 @@ class MultiDateBookingScraper:
             所有日期的航班信息列表
         """
         self._results = []
-
+        import time
+        import random
         for i, config in enumerate(self._date_configs):
             try:
                 logging.info(f"爬取第 {i + 1}/{len(self._date_configs)} 个日期组合")
+                if i > 0:
+                    delay = random.randint(1, 10)  # 随机延迟1到5秒
+                    logging.info(f"等待 {delay} 秒以避免过于频繁的请求")
+                    time.sleep(delay)
 
                 # 创建爬虫实例
                 scraper = ScraperFactory.create_scraper("booking")
@@ -215,7 +220,13 @@ class MultiDateBookingScraper:
             ]
 
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer = csv.DictWriter(
+                    csvfile,
+                    fieldnames=fieldnames,
+                    quoting=csv.QUOTE_ALL,  # 引用所有字段
+                    quotechar='"',  # 使用双引号作为引用字符
+                    escapechar='\\'  # 使用反斜杠作为转义字符
+                )
                 writer.writeheader()
 
                 for flight in self._results:
@@ -289,13 +300,21 @@ class MultiDateBookingScraper:
                         row["inbound_airline"] = flight["airline"]["inbound"]["main_carrier"]["name"]
 
                     # Process baggage information
+                    # 处理行李信息 - 确保正确引用并转义特殊字符
                     if flight["luggage"]:
-                        row["personal_item"] = flight["luggage"].get("personal", "")
-                        row["cabin_baggage"] = flight["luggage"].get("cabin", "")
-                        row["checked_baggage"] = flight["luggage"].get("checked", "")
+                        # 获取行李信息并处理可能的特殊字符
+                        personal = str(flight["luggage"].get("personal", "")).replace('"', '\\"')
+                        cabin = str(flight["luggage"].get("cabin", "")).replace('"', '\\"')
+                        checked = str(flight["luggage"].get("checked", "")).replace('"', '\\"')
 
-                    # Process booking link
-                    row["booking_link"] = flight["booking_link"] if flight["booking_link"] else ""
+                        row["personal_item"] = personal
+                        row["cabin_baggage"] = cabin
+                        row["checked_baggage"] = checked
+
+                    # 处理预订链接 - 确保链接不包含引号和逗号导致的分列问题
+                    if flight["booking_link"]:
+                        link = flight["booking_link"].replace('"', '\\"')
+                        row["booking_link"] = link
 
                     # Write row
                     writer.writerow(row)
@@ -304,6 +323,154 @@ class MultiDateBookingScraper:
             return filepath
         except Exception as e:
             logging.error(f"Error saving CSV: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
+            return ""
+
+    def save_results_xlsx(self, filename: str = "multi_date_flights.xlsx") -> str:
+        """
+        将结果保存为Excel文件
+
+        Args:
+            filename: 文件的默认名，默认为 "multi_date_flights.xlsx"
+
+        Returns:
+            str: 保存的文件路径
+        """
+        if not self._results:
+            logging.warning("No results to save")
+            return ""
+
+        try:
+            # 确保pandas库已安装
+            import pandas as pd
+
+            # 获取输出路径
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+            output_dir = os.path.join(project_root, "output")
+            os.makedirs(output_dir, exist_ok=True)
+            filepath = os.path.join(output_dir, filename)
+
+            # 准备数据列表
+            data = []
+            links = []  # 存储链接，稍后添加
+
+            for flight in self._results:
+                # 基本航班信息
+                row_data = {
+                    "departure_date": flight["depart_date"],
+                    "return_date": flight["return_date"],
+                    "price": flight["price"]["total"] if flight["price"] else "",
+                    "currency": flight["price"]["currency"] if flight["price"] else "",
+                    "origin": flight["airport"]["outbound"]["departure"] if flight["airport"] else "",
+                    "destination": flight["airport"]["outbound"]["arrival"] if flight["airport"] else "",
+                    "airline": flight["airline"]["outbound"]["main_carrier"]["name"] if flight[
+                                                                                            "airline"] and "main_carrier" in
+                                                                                        flight["airline"][
+                                                                                            "outbound"] else "",
+                }
+
+                # 处理出发信息
+                if flight["time"] and "outbound" in flight["time"]:
+                    row_data["outbound_departure_time"] = flight["time"]["outbound"]["departure_time"].replace("T",
+                                                                                                               " ") if "departure_time" in \
+                                                                                                                       flight[
+                                                                                                                           "time"][
+                                                                                                                           "outbound"] else ""
+                    row_data["outbound_arrival_time"] = flight["time"]["outbound"]["arrival_time"].replace("T",
+                                                                                                           " ") if "arrival_time" in \
+                                                                                                                   flight[
+                                                                                                                       "time"][
+                                                                                                                       "outbound"] else ""
+                    row_data["outbound_flight_time"] = flight["time"]["outbound"][
+                        "total_time_formatted"] if "total_time_formatted" in flight["time"]["outbound"] else ""
+
+                # 处理出发中转机场
+                if flight["airport"] and "outbound" in flight["airport"] and "transit" in flight["airport"][
+                    "outbound"] and flight["airport"]["outbound"]["transit"]:
+                    transit_airports = []
+                    for airport in flight["airport"]["outbound"]["transit"]:
+                        transit_airports.append(airport)
+                    row_data["outbound_transit"] = " → ".join(transit_airports)
+                else:
+                    row_data["outbound_transit"] = "Direct"
+
+                # 处理返程信息
+                if flight["time"] and "inbound" in flight["time"]:
+                    row_data["inbound_departure_time"] = flight["time"]["inbound"]["departure_time"].replace("T",
+                                                                                                             " ") if "departure_time" in \
+                                                                                                                     flight[
+                                                                                                                         "time"][
+                                                                                                                         "inbound"] else ""
+                    row_data["inbound_arrival_time"] = flight["time"]["inbound"]["arrival_time"].replace("T",
+                                                                                                         " ") if "arrival_time" in \
+                                                                                                                 flight[
+                                                                                                                     "time"][
+                                                                                                                     "inbound"] else ""
+                    row_data["inbound_flight_time"] = flight["time"]["inbound"][
+                        "total_time_formatted"] if "total_time_formatted" in flight["time"]["inbound"] else ""
+
+                # 处理返程中转机场
+                if flight["airport"] and "inbound" in flight["airport"] and "transit" in flight["airport"][
+                    "inbound"] and flight["airport"]["inbound"]["transit"]:
+                    transit_airports = []
+                    for airport in flight["airport"]["inbound"]["transit"]:
+                        transit_airports.append(airport)
+                    row_data["inbound_transit"] = " → ".join(transit_airports)
+                else:
+                    row_data["inbound_transit"] = "Direct"
+
+                # 处理返程航空公司
+                if flight["airline"] and "inbound" in flight["airline"] and "main_carrier" in flight["airline"][
+                    "inbound"]:
+                    row_data["inbound_airline"] = flight["airline"]["inbound"]["main_carrier"]["name"]
+                else:
+                    row_data["inbound_airline"] = ""
+
+                # 处理行李信息
+                if flight["luggage"]:
+                    row_data["personal_item"] = str(flight["luggage"].get("personal", ""))
+                    row_data["cabin_baggage"] = str(flight["luggage"].get("cabin", ""))
+                    row_data["checked_baggage"] = str(flight["luggage"].get("checked", ""))
+                else:
+                    row_data["personal_item"] = ""
+                    row_data["cabin_baggage"] = ""
+                    row_data["checked_baggage"] = ""
+
+                # 处理预订链接 - 存储为"预订链接"文本，并保存实际链接
+                row_data["booking_link"] = "预订链接" if flight["booking_link"] else ""
+                links.append(flight["booking_link"] if flight["booking_link"] else "")
+
+                data.append(row_data)
+
+            # 创建DataFrame并保存为Excel
+            df = pd.DataFrame(data)
+
+            # 使用pandas保存为Excel
+            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Flights')
+
+                # 获取工作表和表格用于添加超链接
+                workbook = writer.book
+                worksheet = writer.sheets['Flights']
+
+                # 查找booking_link列的索引
+                link_col = df.columns.get_loc("booking_link") + 1  # +1因为Excel列从1开始
+
+                # 添加超链接
+                for i, link in enumerate(links, start=2):  # 从第2行开始(跳过表头)
+                    if link:
+                        cell = worksheet.cell(row=i, column=link_col)
+                        cell.hyperlink = link
+                        # 设置超链接样式
+                        from openpyxl.styles import Font
+                        cell.font = Font(color="0563C1", underline="single")
+
+            logging.info(f"Results saved to Excel: {filepath}")
+            return filepath
+        except Exception as e:
+            logging.error(f"Error saving Excel: {e}")
             import traceback
             logging.error(traceback.format_exc())
             return ""
@@ -323,7 +490,7 @@ class MultiDateBookingScraper:
         """
         # 生成日期范围
         date_pairs = self.generate_date_range(start_date, days_range, return_days)
-        logging.info(f"生成了 {len(date_pairs)} 个日期组合")
+        logging.info(f"生成了 {len(date_pairs)} 个日期组合, 分别为: {date_pairs}")
 
         # 准备配置
         self.prepare_date_configs(date_pairs)
@@ -333,15 +500,33 @@ class MultiDateBookingScraper:
 
         # 保存结果
         # self.save_results_csv()
-        logging.info("已保存到{}目录".format(os.path.join(project_root, "output")))
-        return self.save_results_csv()
+        self.save_results_xlsx()
+        return self.format_result()
 
+    def format_result(self):
+        """
+        格式化结果为文本
+        """
+        if not self._results:
+            return "没有找到航班信息"
 
+        formatted_results = []
+        for result in self._results:
+            formatted_results.append(
+                f"出发日期: {result['depart_date']}, 返程日期: {result['return_date']}, "
+                f"价格: {result['price']['total']} {result['price']['currency']}, "
+                f"起点: {result['airport']['outbound']['departure']}, "
+                f"终点: {result['airport']['outbound']['arrival']}, "
+                f"航空公司: {result['airline']['outbound']['main_carrier']['name']}"
+                f", 航班链接: {result['booking_link']}"
+            )
+
+        return "\n".join(formatted_results)
 if __name__ == "__main__":
     # 设置日志
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # 示例用法
     scraper = MultiDateBookingScraper(ScraperFactory.create_scraper("booking_multi_date"))
-    result = scraper.run("2025-07-01", days_range=5, return_days=36, top_n=5)
+    result = scraper.run("2025-07-15", days_range=2, return_days=32, top_n=3)
     print(result)
