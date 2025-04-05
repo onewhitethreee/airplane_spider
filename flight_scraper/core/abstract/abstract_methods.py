@@ -33,7 +33,7 @@ class FlightScraper(ABC):
         pass
 
     @abstractmethod
-    def get_flight_info(self):
+    def requests_flight_info(self):
         """获取航班信息"""
         pass
 
