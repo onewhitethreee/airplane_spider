@@ -1,5 +1,6 @@
-from config import BaseParseConfig
 import json
+
+from config import BaseParseConfig
 
 
 class JsonParse(BaseParseConfig):

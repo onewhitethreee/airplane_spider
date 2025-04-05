@@ -1,4 +1,4 @@
-# booking_spider.py
+# scraper.py
 from datetime import datetime
 import logging
 import os
@@ -6,34 +6,51 @@ import sys
 import requests
 import json
 
+from flight_scraper.core.data_formatter import format_time_duration, parse_iso_time
+
 # 获取项目根目录路径
 project_root = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
 sys.path.append(project_root)
 
-from config.json_parse import JsonParse
-from config.config_manager import ConfigManager
-from flight_scraper.platforms.booking.config import BookingConfig
+from flight_scraper.core.factory import ScraperFactory
+from flight_scraper.core.abstract_methods import FlightScraper
 
 
-class Booking_spider(BookingConfig):
-    """
-    初始化booking模块的配置信息
-    内有atributes：booking_search_condition, booking_api_url
-    """
+def rm_flights_json():
+    """删除flights.json文件"""
+    if os.path.exists(r"output/flights.json"):
+        os.remove(r"output/flights.json")
 
-    def __init__(self, booking_search_condition):
-        super().__init__(booking_search_condition)
-        # 请求头
-        self._headers = self._initialize_headers()
-        # 包含着所有json的信息
-        self._fight_json_info = None
-        # 包含着在flightOffers下的所有信息
-        self._fightOffers_info = None
 
-        # 是否已经加载过数据
+def _url_encode(text):
+    """将文本进行URL编码"""
+    import urllib.parse
+
+    return urllib.parse.quote(text)
+
+
+class BookingScraper(FlightScraper):
+
+    def __init__(self, platform_config):
+        # super().__init__(booking_search_condition)
+        # # 请求头
+        # self._headers = self._initialize_headers()
+        # # 包含着所有json的信息
+        # self._fight_json_info = None
+        # # 包含着在flightOffers下的所有信息
+        # self._fightOffers_info = None
+        #
+        # # 是否已经加载过数据
+        # self._data_loaded = False
         self._data_loaded = False
+        self._platform_config = platform_config
+        super().__init__(platform_config)
+
+        self._fight_json_info = None
+        self._fightOffers_info = None
+        self._save_file_path = "output/flights.json"
 
     def load_data(self) -> bool:
         """加载并解析数据，确保只执行一次"""
@@ -54,14 +71,15 @@ class Booking_spider(BookingConfig):
         }
         return headers
 
+
     def _initialize_proxies(self):
         """初始化proxies需要的信息. 暂时搁置. 有一个self._proxies属性，里面有x个代理信息。 用来防止IP被ban"""
-        self._proxies = None  # 暂时搁置
+        return self._platform_config.get_proxies_config()
 
     def get_flight_info(self) -> None:
         """获取航班信息，通过requests获取到json信息，写入flights.json文件"""
-        url = self.booking_api_url
-        params = self.booking_search_condition
+        url = self._platform_config.get_api_url()
+        params = self._platform_config.get_search_params()
         response = requests.get(
             url,
             params=params,
@@ -69,17 +87,12 @@ class Booking_spider(BookingConfig):
             proxies=self._proxies,
             verify=False,
         )
-        with open("flights.json", "w", encoding="utf-8") as f:
+        with open(self._save_file_path, "w", encoding="utf-8") as f:
             f.write(response.text)
-
-    def rm_flights_json(self):
-        """删除flights.json文件"""
-        if os.path.exists("flights.json"):
-            os.remove("flights.json")
 
     def __del__(self):
         """析构函数，删除flights.json文件"""
-        self.rm_flights_json()
+        # rm_flights_json()
         pass
 
     def __str__(self):
@@ -95,64 +108,70 @@ class Booking_spider(BookingConfig):
             all_info.append(f"=== 共找到 {flights_count} 个航班方案 ===\n")
 
             # 遍历所有航班
-            for page in range(flights_count):
-                all_info.append(f"\n====== 航班方案 {page+1}/{flights_count} ======")
+            for index in range(flights_count):
+                all_info.append(f"\n====== 航班方案 {index + 1}/{flights_count} ======")
 
                 # 获取价格信息
-                price_info = self.parse_price(page)
+                price_info = self.parse_price(index)
                 if price_info:
                     all_info.append(f"价格: {price_info['total']} {price_info['currency']}")
 
                 # 获取航空公司信息
-                airline_info = self.parse_airline(page)
+                airline_info = self.parse_airline(index)
                 if airline_info:
                     outbound_carrier = airline_info['outbound']['main_carrier']
                     inbound_carrier = airline_info['inbound']['main_carrier']
-                    all_info.append(f"主要承运商: {outbound_carrier.get('name', '')} ({outbound_carrier.get('code', '')})")
-                    
+                    all_info.append(
+                        f"主要承运商: {outbound_carrier.get('name', '')} ({outbound_carrier.get('code', '')})")
+
                     # 如果往返的主要承运商不同，则显示
                     if outbound_carrier.get('code') != inbound_carrier.get('code'):
-                        all_info.append(f"返程承运商: {inbound_carrier.get('name', '')} ({inbound_carrier.get('code', '')})")
+                        all_info.append(
+                            f"返程承运商: {inbound_carrier.get('name', '')} ({inbound_carrier.get('code', '')})")
 
                 # 获取机场和时间信息的简洁版本
-                airport_info = self.parse_airport(page)
-                time_info = self.parse_time(page)
-                
+                airport_info = self.parse_airport(index)
+                time_info = self.parse_time(index)
+
                 if airport_info and time_info:
                     # 去程信息
                     out_dep_time = time_info['outbound']['departure_time'].replace('T', ' ')
                     out_arr_time = time_info['outbound']['arrival_time'].replace('T', ' ')
-                    
+
                     all_info.append("\n-- 去程 --")
-                    all_info.append(f"{out_dep_time} {airport_info['outbound']['departure']} → {out_arr_time} {airport_info['outbound']['arrival']}")
+                    all_info.append(
+                        f"{out_dep_time} {airport_info['outbound']['departure']} → {out_arr_time} {airport_info['outbound']['arrival']}")
                     all_info.append(f"飞行时间: {time_info['outbound']['total_time_formatted']}")
-                    
+
                     # 去程中转信息
                     if airport_info['outbound']['transit']:
                         transit_info = []
                         for i, airport in enumerate(airport_info['outbound']['transit']):
-                            layover_time = time_info['outbound']['layovers'][i]['layover_time_formatted'] if time_info['outbound']['layovers'] else "未知"
+                            layover_time = time_info['outbound']['layovers'][i]['layover_time_formatted'] if \
+                            time_info['outbound']['layovers'] else "未知"
                             transit_info.append(f"{airport} (停留 {layover_time})")
                         all_info.append(f"中转: {' → '.join(transit_info)}")
-                    
+
                     # 返程信息
                     in_dep_time = time_info['inbound']['departure_time'].replace('T', ' ')
                     in_arr_time = time_info['inbound']['arrival_time'].replace('T', ' ')
-                    
+
                     all_info.append("\n-- 返程 --")
-                    all_info.append(f"{in_dep_time} {airport_info['inbound']['departure']} → {in_arr_time} {airport_info['inbound']['arrival']}")
+                    all_info.append(
+                        f"{in_dep_time} {airport_info['inbound']['departure']} → {in_arr_time} {airport_info['inbound']['arrival']}")
                     all_info.append(f"飞行时间: {time_info['inbound']['total_time_formatted']}")
-                    
+
                     # 返程中转信息
                     if airport_info['inbound']['transit']:
                         transit_info = []
                         for i, airport in enumerate(airport_info['inbound']['transit']):
-                            layover_time = time_info['inbound']['layovers'][i]['layover_time_formatted'] if time_info['inbound']['layovers'] else "未知"
+                            layover_time = time_info['inbound']['layovers'][i]['layover_time_formatted'] if \
+                            time_info['inbound']['layovers'] else "未知"
                             transit_info.append(f"{airport} (停留 {layover_time})")
                         all_info.append(f"中转: {' → '.join(transit_info)}")
 
                 # 获取行李额信息
-                luggage_info = self.parse_luggage_allowance(page)
+                luggage_info = self.parse_luggage_allowance(index)
                 if luggage_info:
                     all_info.append("\n-- 行李额 --")
                     luggage_details = []
@@ -165,12 +184,12 @@ class Booking_spider(BookingConfig):
                     all_info.append(" | ".join(luggage_details))
 
                 # 生成预订链接
-                booking_link = self.generate_booking_link(page)
+                booking_link = self.generate_booking_link(index)
                 if booking_link:
                     all_info.append(f"\n预订链接: {booking_link}")
 
                 # 添加分隔线
-                if page < flights_count - 1:
+                if index < flights_count - 1:
                     all_info.append("\n" + "-" * 80)
 
             return "\n".join(all_info)
@@ -180,16 +199,16 @@ class Booking_spider(BookingConfig):
 
     def parse_flights(self) -> None:
         """解析flights.json文件"""
-        if os.path.exists("flights.json"):
-            with open("flights.json", "r", encoding="utf-8") as f:
+        if os.path.exists(self._save_file_path):
+            with open(self._save_file_path, "r", encoding="utf-8") as f:
                 self._fight_json_info = json.load(f)
         else:
-            logging.error("flights.json文件不存在")
+            logging.error(f"{self._save_file_path}文件不存在")
             # 可以选择在这里自动尝试获取数据
             self.get_flight_info()
             # 再次尝试读取
-            if os.path.exists("flights.json"):
-                with open("flights.json", "r", encoding="utf-8") as f:
+            if os.path.exists(self._save_file_path):
+                with open(self._save_file_path, "r", encoding="utf-8") as f:
                     self._fight_json_info = json.load(f)
 
     def parse_flightOffers(self) -> dict:
@@ -198,7 +217,7 @@ class Booking_spider(BookingConfig):
 
         return self._fightOffers_info
 
-    def parse_price(self, page=0) -> dict:
+    def parse_price(self, index=0) -> dict:
         """
         解析价格
         
@@ -216,12 +235,12 @@ class Booking_spider(BookingConfig):
             return None
 
         try:
-            price_units = self._fightOffers_info[page]["priceBreakdown"]["total"]["units"]
-            price_nano = self._fightOffers_info[page]["priceBreakdown"]["total"]["nanos"]
+            price_units = self._fightOffers_info[index]["priceBreakdown"]["total"]["units"]
+            price_nano = self._fightOffers_info[index]["priceBreakdown"]["total"]["nanos"]
             price_total = price_units + price_nano / 1000000000
 
             # 获取货币单位(如果有的话)
-            currency = self._fightOffers_info[page]["priceBreakdown"].get("currencyCode", "EUR")
+            currency = self._fightOffers_info[index]["priceBreakdown"].get("currencyCode", "EUR")
 
             # 返回字典格式
             price_info = {
@@ -236,15 +255,9 @@ class Booking_spider(BookingConfig):
             logging.error(f"解析价格失败: {e}")
             return None
 
-    def _parse_iso_time(self, time_str) -> datetime:
-        """手动解析ISO格式时间字符串"""
-        # 处理格式如：2025-07-14T10:15:00
-        date_part, time_part = time_str.split('T')
-        year, month, day = map(int, date_part.split('-'))
-        hour, minute, second = map(int, time_part.split(':'))
-        return datetime(year, month, day, hour, minute, second)
 
-    def parse_time(self, pages=0) -> dict:
+
+    def parse_time(self, indexs=0) -> dict:
         """
         解析飞行时间， 包括去程和返程的飞行时间，中转时间
 
@@ -270,7 +283,7 @@ class Booking_spider(BookingConfig):
             logging.error("数据未加载, 可能是因为没有获取到flight.json文件")
             return None
         try:
-            segments = self._fightOffers_info[pages]["segments"]
+            segments = self._fightOffers_info[indexs]["segments"]
 
             # 创建存储飞行时间信息的字典
             time_info = {
@@ -278,14 +291,14 @@ class Booking_spider(BookingConfig):
                     "departure_time": segments[0]["departureTime"],
                     "arrival_time": segments[0]["arrivalTime"],
                     "total_time_seconds": segments[0]["totalTime"],
-                    "total_time_formatted": self._format_time_duration(segments[0]["totalTime"]),
+                    "total_time_formatted": format_time_duration(segments[0]["totalTime"]),
                     "layovers": []
                 },
                 "inbound": {
                     "departure_time": segments[1]["departureTime"],
                     "arrival_time": segments[1]["arrivalTime"],
                     "total_time_seconds": segments[1]["totalTime"],
-                    "total_time_formatted": self._format_time_duration(segments[1]["totalTime"]),
+                    "total_time_formatted": format_time_duration(segments[1]["totalTime"]),
                     "layovers": []
                 }
             }
@@ -294,11 +307,11 @@ class Booking_spider(BookingConfig):
             if len(segments[0]["legs"]) > 1:
                 for i in range(len(segments[0]["legs"]) - 1):
                     current_leg_arrival = segments[0]["legs"][i]["arrivalTime"]
-                    next_leg_departure = segments[0]["legs"][i+1]["departureTime"]
+                    next_leg_departure = segments[0]["legs"][i + 1]["departureTime"]
 
                     # 将时间字符串转换为datetime对象
-                    arrival_time = self._parse_iso_time(current_leg_arrival)
-                    departure_time = self._parse_iso_time(next_leg_departure)
+                    arrival_time = parse_iso_time(current_leg_arrival)
+                    departure_time = parse_iso_time(next_leg_departure)
 
                     # 计算停留时间（秒）
                     layover_seconds = (departure_time - arrival_time).total_seconds()
@@ -306,7 +319,7 @@ class Booking_spider(BookingConfig):
                     layover_info = {
                         "airport": segments[0]["legs"][i]["arrivalAirport"]["name"],
                         "layover_time_seconds": int(layover_seconds),
-                        "layover_time_formatted": self._format_time_duration(int(layover_seconds))
+                        "layover_time_formatted": format_time_duration(int(layover_seconds))
                     }
                     time_info["outbound"]["layovers"].append(layover_info)
 
@@ -314,7 +327,7 @@ class Booking_spider(BookingConfig):
             if len(segments[1]["legs"]) > 1:
                 for i in range(len(segments[1]["legs"]) - 1):
                     current_leg_arrival = segments[1]["legs"][i]["arrivalTime"]
-                    next_leg_departure = segments[1]["legs"][i+1]["departureTime"]
+                    next_leg_departure = segments[1]["legs"][i + 1]["departureTime"]
 
                     # 将时间字符串转换为datetime对象
                     arrival_time = datetime.fromisoformat(current_leg_arrival)
@@ -326,7 +339,7 @@ class Booking_spider(BookingConfig):
                     layover_info = {
                         "airport": segments[1]["legs"][i]["arrivalAirport"]["name"],
                         "layover_time_seconds": int(layover_seconds),
-                        "layover_time_formatted": self._format_time_duration(int(layover_seconds))
+                        "layover_time_formatted": format_time_duration(int(layover_seconds))
                     }
                     time_info["inbound"]["layovers"].append(layover_info)
 
@@ -336,13 +349,9 @@ class Booking_spider(BookingConfig):
             logging.error(f"解析飞行时间失败: {e}")
             return None
 
-    def _format_time_duration(self, seconds) -> str:
-        """将秒数格式化为小时和分钟"""
-        hours = seconds // 3600
-        minutes = (seconds % 3600) // 60
-        return f"{hours}h {minutes}m"
 
-    def parse_airport(self, pages=0) -> dict:
+
+    def parse_airport(self, indexs=0) -> dict:
         """
         解析机场，获取去程和返程的中转机场
         
@@ -365,7 +374,7 @@ class Booking_spider(BookingConfig):
             logging.error("数据未加载, 可能是因为没有获取到flight.json文件")
             return None
         try:
-            segments = self._fightOffers_info[pages]["segments"]
+            segments = self._fightOffers_info[indexs]["segments"]
 
             # 存储结果的字典
             airports = {
@@ -385,13 +394,13 @@ class Booking_spider(BookingConfig):
             if len(segments[0]["legs"]) > 1:
                 for i in range(1, len(segments[0]["legs"])):
                     # 中转机场是前一个leg的到达机场
-                    transit_airport = segments[0]["legs"][i-1]["arrivalAirport"]["name"]
+                    transit_airport = segments[0]["legs"][i - 1]["arrivalAirport"]["name"]
                     airports["outbound"]["transit"].append(transit_airport)
 
             # 提取返程的中转机场
             if len(segments[1]["legs"]) > 1:
                 for i in range(1, len(segments[1]["legs"])):
-                    transit_airport = segments[1]["legs"][i-1]["arrivalAirport"]["name"]
+                    transit_airport = segments[1]["legs"][i - 1]["arrivalAirport"]["name"]
                     airports["inbound"]["transit"].append(transit_airport)
             return airports
 
@@ -399,7 +408,7 @@ class Booking_spider(BookingConfig):
             logging.error(f"解析机场失败: {e}")
             return None
 
-    def parse_airline(self, pages=0) -> dict:
+    def parse_airline(self,indexs=0) -> dict:
         """
         解析航空公司信息
         
@@ -428,7 +437,7 @@ class Booking_spider(BookingConfig):
             logging.error("数据未加载, 可能是因为没有获取到flight.json文件")
             return None
         try:
-            segments = self._fightOffers_info[pages]["segments"]
+            segments = self._fightOffers_info[indexs]["segments"]
 
             # 存储结果的字典
             airlines = {
@@ -490,7 +499,7 @@ class Booking_spider(BookingConfig):
             logging.error(f"解析航空公司失败: {e}")
             return None
 
-    def parse_luggage_allowance(self, pages=0) -> dict:
+    def parse_luggage_allowance(self, indexs=0) -> dict:
         """
         解析行李额
         
@@ -506,13 +515,13 @@ class Booking_spider(BookingConfig):
             logging.error("数据未加载, 可能是因为没有获取到flight.json文件")
             return None
         try:
-            luggage_allowance = self._fightOffers_info[pages]["brandedFareInfo"]["features"]
+            luggage_allowance = self._fightOffers_info[indexs]["brandedFareInfo"]["features"]
 
             # 创建一个字典来存储行李类别信息
             luggage_info = {
                 'personal': None,  # 随身小包
-                'cabin': None,     # 随身行李
-                'checked': None    # 托运行李
+                'cabin': None,  # 随身行李
+                'checked': None  # 托运行李
             }
 
             for luggage in luggage_allowance:
@@ -533,7 +542,7 @@ class Booking_spider(BookingConfig):
             logging.error(f"解析行李额失败: {e}")
             return None
 
-    def parse_link(self, pages=0) -> dict:
+    def parse_link(self, indexs=0) -> dict:
         """
         解析航班链接token
         
@@ -548,7 +557,7 @@ class Booking_spider(BookingConfig):
             return None
         try:
             # 获取指定页码的航班信息
-            flight_offer = self._fightOffers_info[pages]
+            flight_offer = self._fightOffers_info[indexs]
 
             # 初始化结果字典
             link_info = {}
@@ -558,7 +567,7 @@ class Booking_spider(BookingConfig):
                 token = flight_offer["token"]
                 link_info["token"] = token
             else:
-                logging.warning(f"在航班 {pages} 中未找到token信息")
+                logging.warning(f"在航班 {indexs} 中未找到token信息")
 
             return link_info
 
@@ -566,13 +575,12 @@ class Booking_spider(BookingConfig):
             logging.error(f"解析链接失败: {e}")
             return None
 
-
-    def generate_booking_link(self, pages=0) -> str:
+    def generate_booking_link(self, indexs=0) -> str:
         """
         根据航班信息生成booking.com预订链接
 
         Args:
-            pages: 航班索引，默认为0
+            indexs: 航班索引，默认为0
 
         Returns:
             生成的booking.com预订链接
@@ -583,7 +591,7 @@ class Booking_spider(BookingConfig):
 
         try:
             # 获取token
-            link_info = self.parse_link(pages)
+            link_info = self.parse_link(indexs)
             if not link_info or "token" not in link_info:
                 logging.error("无法获取token信息")
                 return None
@@ -591,7 +599,7 @@ class Booking_spider(BookingConfig):
             token = link_info["token"]
 
             # 获取机场信息
-            airport_info = self.parse_airport(pages)
+            airport_info = self.parse_airport(indexs)
             if not airport_info:
                 logging.error("无法获取机场信息")
                 return None
@@ -601,31 +609,31 @@ class Booking_spider(BookingConfig):
             to_airport = airport_info["outbound"]["arrival"].split(" ")[0]
 
             # 获取机场所在城市代码
-            from_city = segments = self._fightOffers_info[pages]["segments"][0][
+            from_city = segments = self._fightOffers_info[indexs]["segments"][0][
                 "departureAirport"
             ]["city"]
-            to_city = segments = self._fightOffers_info[pages]["segments"][0][
+            to_city = segments = self._fightOffers_info[indexs]["segments"][0][
                 "arrivalAirport"
             ]["city"]
 
             # 获取国家代码
-            from_country = segments = self._fightOffers_info[pages]["segments"][0][
+            from_country = segments = self._fightOffers_info[indexs]["segments"][0][
                 "departureAirport"
             ]["country"]
-            to_country = segments = self._fightOffers_info[pages]["segments"][0][
+            to_country = segments = self._fightOffers_info[indexs]["segments"][0][
                 "arrivalAirport"
             ]["country"]
 
             # 获取机场名称（需要URL编码）
-            from_location_name = self._url_encode(
-                self._fightOffers_info[pages]["segments"][0]["departureAirport"]["name"]
+            from_location_name = _url_encode(
+                self._fightOffers_info[indexs]["segments"][0]["departureAirport"]["name"]
             )
-            to_location_name = self._url_encode(
-                self._fightOffers_info[pages]["segments"][0]["arrivalAirport"]["cityName"]
+            to_location_name = _url_encode(
+                self._fightOffers_info[indexs]["segments"][0]["arrivalAirport"]["cityName"]
             )
 
             # 获取出发和返回日期
-            time_info = self.parse_time(pages)
+            time_info = self.parse_time(indexs)
             if not time_info:
                 logging.error("无法获取时间信息")
                 return None
@@ -663,25 +671,26 @@ class Booking_spider(BookingConfig):
             logging.error(f"生成链接失败: {e}")
             return None
 
-
-    def _url_encode(self, text):
-        """将文本进行URL编码"""
-        import urllib.parse
-
-        return urllib.parse.quote(text)
-
     def run(self):
         """运行函数"""
         self.get_flight_info()
         return str(self)
-# if __name__ == "__main__":
-#     config_manager = ConfigManager()
-#     json_config = config_manager.register_parser(
-#         r"config/configs/config_booking.json", JsonParse
-#     )
-#     booking_spider = Booking_spider(json_config)
-#     # booking_spider.get_flight_info()
-#     # booking_spider.parse_airport()
-#     # print(booking_spider.generate_booking_link())
-#     with open("flights_info.txt", "w", encoding="utf-8") as f:
-#         f.write(str(booking_spider))
+
+
+if __name__ == "__main__":
+    # config_manager = ConfigManager()
+    # json_config = config_manager.register_parser(
+    #     r"config/configs/config_booking.json", JsonParse
+    # )
+    # booking_spider = Booking_spider(json_config)
+    # # booking_spider.get_flight_info()
+    # # booking_spider.parse_airport()
+    # # print(booking_spider.generate_booking_link())
+    # with open("flights_info.txt", "w", encoding="utf-8") as f:
+    #     f.write(str(booking_spider))
+    scraper_config = ScraperFactory.create_scraper("booking")
+
+    # 获取航班信息
+    result = scraper_config.get_flight_info()
+
+    print(result)

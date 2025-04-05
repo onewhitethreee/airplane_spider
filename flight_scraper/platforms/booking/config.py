@@ -1,10 +1,13 @@
 import os
 import sys
+import json
+from distutils.command.config import config
 
 project_root = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 sys.path.append(project_root)
+
 from flight_scraper.core.platform_config import PlatformConfig
 
 
@@ -44,12 +47,19 @@ class BookingConfig(PlatformConfig):
         """
         return self._proxies_config
 
-import json
 
 if __name__ == "__main__":
     # 从文件加载配置
+    print("加载配置文件...")
+
+    current_file = os.path.abspath(__file__)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    config_path = os.path.join(project_root, "config", "configs", "config_booking.json")
+
+    print(config_path)
     with open(
-        r"flight_scraper\config\configs\config_booking.json", "r", encoding="utf-8"
+        config_path, "r", encoding="utf-8"
     ) as f:
         config_data = json.load(f)
 
