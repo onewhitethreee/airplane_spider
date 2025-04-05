@@ -1,69 +1,175 @@
-这是一个整合所有机票信息的小爬虫。
+# 航班爬虫
 
-# 初步demo
+一个综合性的航班票价信息爬虫，汇总多个平台的数据，帮助您找到最优惠的航班。
 
-通过出发日期，出发地，目的地，爬取所有机票信息。
+## 概述
 
-## 初步机票平台
+本项目旨在从各个平台抓取航班信息，比较价格，并通知用户最优惠的航班。目前支持Booking.com，计划扩展到携程(Trip.com)和同程(Ly.com)。
 
-- 携程(Trip)
-- 同程
-- Booking
+## 功能特点
 
-# 目前功能计划
+### 当前功能
 
-## 以下功能都可以用excel进行手动排序
+- [x] **多平台支持**
+  - [x] Booking.com
+  - [ ] 携程(Trip.com)（计划中）
+  - [ ] 同程(Ly.com)（计划中）
 
-- [x] 机票按照价格排序
-- [x] 机票按照时间排序
-- [x] 机票按照航空公司排序
-- [x] 机票按照中转次数排序
-- [x] 机票按照行李额排序
-- 
-## 可能会去完成的功能
+- [x] **高级搜索选项**
+  - [x] 多日期搜索（在一段时间内找到最便宜的航班）
+  - [x] 往返搜索
+  - [x] 可自定义舱位等级、乘客数量
 
-- 多语言适配，至少支持中文和英文
+- [x] **数据处理**
+  - [x] 按价格排序
+  - [x] 按航空公司筛选
+  - [x] 按中转次数筛选
+  - [x] 按行李额筛选
 
-# 初步完善日期
+- [x] **通知系统**
+  - [x] Server酱集成
+  - [ ] Telegram通知（计划中）
 
-需要在五月完成第一个平台的爬取。六月完成目前3个平台的爬取。
+- [x] **导出格式**
+  - [x] Excel导出
+  - [x] CSV导出
+  - [x] 纯文本输出
 
-# 目前进度
+### 筛选功能
 
-- [x] 完成了Booking的爬取
-- [x] 完成了对Booking多个日期的爬取
-- [x]  完成了server酱的推送  
+以下筛选和排序选项可通过Excel使用：
 
-这是一个非盈利的项目，此项目的存在只是为了能够让我去更好的整合所有机票信息，方便我自己的出行。
+- [x] 按价格排序
+- [x] 按出发/到达时间排序
+- [x] 按航空公司排序
+- [x] 按中转次数排序
+- [x] 按行李额排序
 
-目前已经完成了Booking的爬取，这个没有难度，只是一个json的解析。为了防止IP被封，只获取到了搜索后的第一页的数据。后面的结果可以不用去看了，因为价格是从低到高排序的。
+## 安装
 
-# 接下来的计划
+### 要求
 
-完善另外几个平台的爬取，另外几个平台是国内的，所以会有一些难度，这个难度体现在验证码的方面，Booking对这方面更加的宽松。添加更多的通知方式，比如邮件，短信等等。
+- Python 3.7+
+- 所需包（通过`pip install -r requirements.txt`安装）:
+  - requests
+  - pandas
+  - openpyxl
+  - python-dotenv
 
-# 使用方法
+### 设置
 
-目前只有一个Booking的平台可用，使用方法如下：
-
-1. 在config\configs\config_booking.json目录下配置booking_search_condition。具体需要配置的key只有出发日期，出发地，目的地。比如如下：
-
-```json
-{
-  "booking_search_condition": {
-    "from": "北京",
-    "to": "上海",
-    "date": "2025-05-01"
-  }
-}
+1. 克隆仓库:
+```bash
+git clone https://github.com/yourusername/flight-scraper.git
+cd flight-scraper
 ```
 
-其他的无需改动，如果你有代理池，也可以在同一文件下进行配置，不过目前还没有这方面的实现。
-
-2. 配置一个推送方式，比如server酱，具体的配置在config\configs\nofity_config.json下，只有一个简单的key，enable，如果为true，则会推送，如果为false，则不会推送。如果所有的通知都为false，那么则输出到控制台。具体的API_KEY需要在环境变量中配置，或者在根目录下面创建一个.env文件，然后在里面配置。
-
-```shell
-SERVER_API_KEY=xxxx
+2. 安装依赖:
+```bash
+pip install -r requirements.txt
 ```
 
-3. 在配置完上方的两个配置后，直接运行src/main.py即可。
+3. 配置搜索参数:
+   - 编辑`config/configs/config_booking.json`设置您的搜索条件
+   - 示例:
+   ```json
+   {
+     "booking": {
+       "api_url": "https://flights.booking.com/api/flights/",
+       "booking_search_condition": {
+         "type": "ROUNDTRIP",
+         "adults": "1",
+         "cabinClass": "ECONOMY",
+         "children": "",
+         "from": "MAD.AIRPORT",
+         "to": "SHA.CITY",
+         "depart": "2025-07-14",
+         "return": "2025-08-19",
+         "sort": "CHEAPEST"
+       },
+       "proxies": {
+         "proxy1": {
+           "host": "proxy1.com",
+           "port": "8080",
+           "username": "user1",
+           "password": "pass1"
+         }
+       }
+     }
+   }
+   ```
+
+4. 配置通知服务（可选）:
+   - 编辑`config/configs/nofity_config.json`启用或禁用通知服务
+   - 对于Server酱，在项目根目录创建一个`.env`文件:
+   ```
+   SERVER_API_KEY=your_server_jiang_key
+   ```
+
+## 使用方法
+
+### 基本用法
+
+运行主脚本搜索航班:
+
+```bash
+python src/main.py
+```
+
+### 高级选项
+
+```bash
+python src/main.py --start-date 2025-07-15 --days-range 10 --return-days 36 --top-n 5 --save-excel
+```
+
+命令行参数:
+
+- `--start-date`: 搜索起始日期（格式：YYYY-MM-DD）
+- `--days-range`: 从起始日期开始搜索的天数（默认：1）
+- `--return-days`: 停留时间长度（默认：36）
+- `--top-n`: 显示最便宜的航班数量（默认：5）
+- `--title`: 自定义通知标题
+- `--no-notify`: 不发送通知，仅保存到文件
+- `--save-csv`: 将结果保存为CSV
+- `--save-excel`: 将结果保存为Excel（默认启用）
+
+## 项目结构
+
+该项目遵循模块化设计，主要组件如下:
+
+- `config/`: 配置管理
+- `flight_scraper/`: 核心爬虫功能
+  - `core/`: 抽象类和通用工具
+  - `platforms/`: 平台特定实现
+- `notify/`: 通知服务
+- `src/`: 主应用程序代码
+
+完整概览请参阅[目录结构](structure.md)。
+
+## 开发状态
+
+本项目正在积极开发中:
+
+- [x] 完成Booking.com爬虫
+- [x] 实现Booking.com多日期搜索
+- [x] 添加Server酱通知
+- [ ] 实现携程(Trip.com)爬虫
+- [ ] 实现同程(Ly.com)爬虫
+- [ ] 添加Telegram通知
+
+## 未来计划
+
+- 多语言支持（中文和英文）
+- 邮件通知
+- 移动应用集成
+- 更多筛选选项
+- 航班价格历史追踪
+- 价格提醒功能
+
+## 免责声明
+
+这是一个非商业项目，仅为个人使用而创建，用于汇总航班信息和便于旅行计划。请按照航班预订平台的服务条款负责任地使用。
+
+## 许可
+
+本项目是开源的，使用MIT许可证。
