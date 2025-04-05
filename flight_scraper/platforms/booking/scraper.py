@@ -95,7 +95,7 @@ class BookingScraper(FlightScraper):
                 f.write(response.text)
                 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-                logging.info(f"航班信息已保存到 {self._save_file_path}")
+                logging.debug(f"航班信息已保存到 {self._save_file_path}")
         except requests.RequestException as e:
             logging.error(f"请求航班信息失败: {e}")
             return None

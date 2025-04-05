@@ -1,7 +1,6 @@
+import json
 import os
 import sys
-import json
-from distutils.command.config import config
 
 project_root = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

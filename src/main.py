@@ -72,7 +72,7 @@ def main():
         parser = argparse.ArgumentParser(description="多日期航班搜索工具")
         parser.add_argument("--start-date", type=str, default=None,
                             help="开始日期，格式为YYYY-MM-DD")
-        parser.add_argument("--days-range", type=int, default=1,
+        parser.add_argument("--days-range", type=int, default=10,
                             help="出发日期范围天数，默认为1天")
         parser.add_argument("--return-days", type=int, default=36,
                             help="返程天数，默认为36天")
