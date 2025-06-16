@@ -74,7 +74,7 @@ def main():
                             help="开始日期，格式为YYYY-MM-DD")
         parser.add_argument("--days-range", type=int, default=10,
                             help="出发日期范围天数，默认为1天")
-        parser.add_argument("--return-days", type=int, default=36,
+        parser.add_argument("--return-days", type=int, default=30,
                             help="返程天数，默认为36天")
         parser.add_argument("--top-n", type=int, default=5,
                             help="显示前几个最便宜的航班，默认为5个")

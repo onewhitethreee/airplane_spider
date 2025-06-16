@@ -8,7 +8,7 @@
             "children": "",
             "from": "MAD.AIRPORT",
             "to": "SHA.CITY",
-            "depart": "2025-07-14",
+            "depart": "2025-07-04",
             "return": "2025-08-19",
             "sort": "CHEAPEST"
         },
