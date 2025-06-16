@@ -6,6 +6,8 @@ import logging
 from datetime import datetime, timedelta
 import copy
 from typing import List, Dict, Any, Tuple, Optional
+import pandas as pd
+import csv
 
 from flight_scraper.core.factory.factory import ScraperFactory
 
@@ -50,6 +52,10 @@ class MultiDateBookingScraper:
 
         self._results = []
         self._date_configs = []
+        self.current_dir = os.path.dirname(os.path.abspath(__file__))
+        self.project_root = os.path.dirname(os.path.dirname(os.path.dirname(self.current_dir)))
+        self.output_dir = os.path.join(self.project_root, "output/booking/")
+        os.makedirs(self.output_dir, exist_ok=True)
 
     def generate_date_range(self, start_date_str: str, days_range: int = 1,
                             return_days: int = 36) -> List[Tuple[str, str]]:
@@ -201,13 +207,8 @@ class MultiDateBookingScraper:
         try:
 
             # Get filename from existing path
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-            output_dir = os.path.join(project_root, "output")
-            os.makedirs(output_dir, exist_ok=True)
-            filepath = os.path.join(output_dir, filename)
+            filepath = os.path.join(self.output_dir, filename)
 
-            import csv
 
             # Define CSV fields
             fieldnames = [
@@ -342,16 +343,7 @@ class MultiDateBookingScraper:
             return ""
 
         try:
-            # 确保pandas库已安装
-            import pandas as pd
-
-            # 获取输出路径
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-            output_dir = os.path.join(project_root, "output")
-            os.makedirs(output_dir, exist_ok=True)
-            filepath = os.path.join(output_dir, filename)
-
+            filepath = os.path.join(self.output_dir, filename)
             # 准备数据列表
             data = []
             links = []  # 存储链接，稍后添加
