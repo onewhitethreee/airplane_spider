@@ -40,6 +40,13 @@ def load_notify_config():
         JsonParse
     )
 
+def load_trip_config():
+    """加载Trip配置"""
+    config_manager = ConfigManager()
+    return config_manager.register_parser(
+        os.path.join(project_root, "config", "configs", "config_trip.json"),
+        JsonParse
+    )
 
 def send_notification(title, content, notify_config):
     """发送通知"""

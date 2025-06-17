@@ -1,4 +1,3 @@
-
 class PlatformConfig:
     """
     各种平台的配置类
@@ -15,7 +14,7 @@ class PlatformConfig:
         """
         加载配置文件，子类实现
         """
-        pass
+        raise NotImplementedError("Subclasses should implement this method.")
 
     def api_url(self):
         """
